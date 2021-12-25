@@ -27,6 +27,7 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
       }
     isone
     }
+  val count = Counter(0 until datavec.length)
   val widthcov = new Area {
     val fifofull = Reg(False)
     when(io.axis.fire){
@@ -38,14 +39,17 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
     }
     fifofull.setWhen(fifocach.io.occupancy === fifocach.io.occupancy.maxValue)
     when(fifofull){
-      for(i<-0 until datavec.length){
-        validdata.payload(i,8 bits):=fifocach.io.pop.payload//以变量为索引取指定之位宽
-        fifofull.clearWhen(Bool(i == datavec.length-1))
+      when(count.value<=datavec.length-1){
+        validdata.payload(count.value,8 bits):=fifocach.io.pop
+        count.increment()
+      }.elsewhen(count.willOverflow){
+        fifofull.clear()
+        count.clear()
       }
-
     }
 
   }
   validdata.valid:= widthcov.fifofull//全满时数据有效
   io.dmaWrapper<-/<validdata
 }
+
