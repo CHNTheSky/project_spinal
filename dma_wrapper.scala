@@ -31,5 +31,40 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
   when(fifocach.io.occupancy === fifocach.io.occupancy.maxValue){
     io.dmaWrapper<-/<fifocach.io.pop
   }
+/*
 
+case class portA() extends Bundle{
+  val data=UInt(512 bits)
+  val mty=UInt(6 bits)
+}
+case class portB() extends Bundle{
+  val data=UInt(512 bits)
+  val tkeep=UInt(64 bits)
+}
+case class busAdapt(fifoDepth:Int=512) extends Component {
+  val io=new Bundle{
+    val dataIn=slave Stream(portA())
+    val dataOut=master Stream(portB())
+  }
+  noIoPrefix()
+  val _=new Area{
+    val fifoCache=StreamFifo(portA(),fifoDepth)
+    val busCov=portB()
+    if(clockDomain.config.resetActiveLevel==HIGH)
+      fifoCache.io.flush:=clockDomain.readResetWire
+    else
+      fifoCache.io.flush:= !clockDomain.readResetWire
+    io.dataIn<>fifoCache.io.push
+    busCov.data:=fifoCache.io.pop.data
+    keepCov.mty2keep(busCov.tkeep,fifoCache.io.pop.mty)
+    io.dataOut<>fifoCache.io.pop.translateWith(busCov)
+  }.setName("")
+}
+object keepCov{
+  def mty2keep(tkeep:UInt,mty:UInt)={
+    val mtyIndex=for(index<-0 to 63) yield U((BigInt(1)<<(64-index))-1)
+    tkeep:=mtyIndex.read(mty)
+  }
+}
+*/
 }
