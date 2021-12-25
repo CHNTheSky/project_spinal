@@ -49,7 +49,8 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
     }
 
   }
+  validdata.ready:=io.dmaWrapper.ready
   validdata.valid:= widthcov.fifofull//全满时数据有效
-  io.dmaWrapper<-/<validdata
+  io.dmaWrapper.payload:=validdata.payload
 }
 
