@@ -6,11 +6,12 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
     val axis =slave Stream(Bits(Datawidthin bits))
     val dmaWrapper = master Stream(Bits(Datawidthout bits))
   }
-  val datavec=io.axis.payload.subdivideIn(io.axis_tkeep.getWidth slices)//切片
+  io.dmaWrapper.ready:=True
+  val datavec=io.axis.payload.subdivideIn(8 bits)//切片
 
   val fifocach=StreamFifo(
-    dataType = Bits(),
-    depth = Datawidthout
+    dataType = Bits(8 bits),
+    depth = Datawidthout/8
   )
 
   def isone(bit : Int,data: Bits)={ //根据keep判断哪些字节有效
@@ -20,14 +21,15 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
       }
     isone
     }
-  when(io.axis.valid){
-    for(i<-0 to Datawidthin/8){
+  when(io.axis.fire){
+    for(i<-0 to datavec.length){
       when(isone(i,io.axis_tkeep)){
-        fifocach.io.push<<Stream(datavec.read(i))
+        fifocach.io.push<-/<Stream(datavec.read(i))
       }
     }
   }
   when(fifocach.io.occupancy === fifocach.io.occupancy.maxValue){
-    fifocach.io.pop>>io.dmaWrapper
+    io.dmaWrapper<-/<fifocach.io.pop
   }
+
 }
