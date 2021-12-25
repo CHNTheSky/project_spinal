@@ -19,7 +19,7 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
     dataType = Bits(8 bits),
     depth = Datawidthout/8
   )
-  
+
   def isone(bit : Int,data: Bits)={ //根据keep判断哪些字节有效
     val isone = False
       when(data(bit)){
@@ -30,7 +30,7 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
   val widthcov = new Area {
     val validfull = False
     when(io.axis.fire){
-      for(i<-0 to datavec.length){
+      for(i<-0 until  datavec.length){
         when(isone(i,io.axis_tkeep)){
           fifocach.io.push<-/<Stream(datavec.read(i).asBits)
         }
@@ -40,8 +40,8 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
       validfull:=True
     }
     when(validfull){
-      for(i<-0 to datavec.length){
-        validdata.payload(0 until i*8-1):=fifocach.io.pop.payload
+      for(i<-0 until datavec.length){
+        validdata.payload(i,8 bits):=fifocach.io.pop.payload//以变量为索引取指定之位宽
       }
         validfull:=False
     }
@@ -50,3 +50,4 @@ case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
   validdata.valid:= fifocach.io.occupancy === fifocach.io.occupancy.maxValue//全满时数据有效
   io.dmaWrapper<-/<validdata
 }
+
