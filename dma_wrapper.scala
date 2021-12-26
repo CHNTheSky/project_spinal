@@ -1,56 +1,35 @@
 import spinal.core._
 import spinal.lib._
-/*
-case class portA(Datawidthout : Int) extends Bundle{
-  val data=Bits(8 bits)
-  val dataout=Bits(Datawidthout bits)
-}*/
-case class DmaWrapper(Datawidthin : Int,Datawidthout : Int) extends Component{
-  val io = new Bundle{
-    val axis_tkeep =in Bits(Datawidthin/8 bits)
-    val axis =slave Stream(Bits(Datawidthin bits))
-    val dmaWrapper = master Stream(Bits(Datawidthout bits))
+case class DmaWrapper(dataWidth: Int) extends Component{
+  val io = new Bundle {
+    val axis_tkeep = in Bits (dataWidth / 8 bits)
+    val axis = slave Stream (Bits(dataWidth bits))
+    val dmaWrapper = master Stream (Bits(dataWidth bits))
+  }
+  def firstOne(data:Bits)={
+    val index = UInt
+    for(i<-0 until io.axis_tkeep.getWidth){
+    when(data(i)=/=0){
+      index := i
+    }
+  }
+    index
+  }
+  def lastOne(data:Bits)={
+    val index = UInt
+    for(i<-0 until io.axis_tkeep.getWidth){
+      when(data(i)===0){
+        index := i
+      }
+    }
+    index
+  }
+  val wantedId = Counter(1, inc = io.axis.fire)
+  val twoStreams = StreamDemux(io.axis, select = wantedId, portCount = 2)
+  val validData1 = twoStreams(0)
+  val validData2 = twoStreams(1)
+  io.dmaWrapper<<StreamJoin.arg(validData1,validData2).translateWith{
+    (validData1.payload.rotateLeft(0)>>firstOne(validData1.payload).rotateLeft(0))## (validData2.payload>>lastOne(validData2.payload))
   }
 
-  val validdata = Stream(Bits(Datawidthout bits))//所有有效数据
-
-  val datavec=io.axis.payload.subdivideIn(8 bits)//切片
-  val fifocach=StreamFifo(
-    dataType = Bits(8 bits),
-    depth = Datawidthout/8
-  )
-
-  def isone(bit : Int,data: Bits)={ //根据keep判断哪些字节有效
-    val isone = False
-      when(data(bit)){
-        isone:=True
-      }
-    isone
-    }
-  val count = Counter(0 until datavec.length)
-  val widthcov = new Area {
-    val fifofull = Reg(False)
-    when(io.axis.fire){
-      for(i<-0 until  datavec.length){
-        when(isone(i,io.axis_tkeep)){
-          fifocach.io.push<-/<Stream(datavec.read(i).asBits)
-        }
-      }
-    }
-    fifofull.setWhen(fifocach.io.occupancy === fifocach.io.occupancy.maxValue)
-    when(fifofull){
-      when(count.value<=datavec.length-1){
-        validdata.payload(count.value,8 bits):=fifocach.io.pop
-        count.increment()
-      }.elsewhen(count.willOverflow){
-        fifofull.clear()
-        count.clear()
-      }
-    }
-
-  }
-  validdata.ready:=io.dmaWrapper.ready
-  validdata.valid:= widthcov.fifofull//全满时数据有效
-  io.dmaWrapper.payload:=validdata.payload
 }
-
