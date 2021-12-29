@@ -8,7 +8,6 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
     val axis = slave Stream (Bits(busWidth bits))
     val dmaWrapper = master Stream (Bits(busWidth bits))
   }
-  io.dmaWrapper.m2sPipe()//打拍
   val fifoCach=StreamFifo(
     dataType = Bits(busWidth bits),
     depth = 8
