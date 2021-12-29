@@ -1,6 +1,5 @@
 import spinal.core._
 import spinal.lib._
-import scala.Int
 case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
   val io = new Bundle {
     val axis_tkeep = in Bits (busWidth / 8 bits)
