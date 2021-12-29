@@ -29,6 +29,8 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
     when(io.axis_tlast){
       streamOut.valid:=True
     }.otherwise(streamOut.valid:=False)
+
+    fifoCach.io.pop.ready:=True
     dataJoin := dataJoin##fifoCach.io.pop.payload//拼接
     io.dmaWrapper<>StreamWidthAdapter.make(streamOut.translateWith((dataJoin<<(shiftBit*8)).resizeLeft(dataOutWidth)).m2sPipe(),Bits(busWidth bits)).queue(10)
 
@@ -45,7 +47,5 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
     index
   }
 }
-
-
 
 
