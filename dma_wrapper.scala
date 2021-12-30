@@ -17,7 +17,15 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
   val shiftBit = Reg(UInt())
   val lastStage = Reg(UInt(3 bits)) init(0)//上一拍标志
   val curStage= RegNext(lastStage)//当前拍标志
-
+  def firstValid(data:Bits)={
+    val index = U(0)
+    for(i<-0 until io.axis_tkeep.getWidth){
+      when(data(i).asUInt===1){
+        index := i
+      }
+    }
+    index
+  }
   val laststage  =new Area{
     when(isFirstOne){
       lastStage:=0
@@ -49,15 +57,4 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
     dataJoin:=tmpdata.resized
     io.dmaWrapper<>StreamWidthAdapter.make(streamOut.translateWith((dataJoin<<(shiftBit*8)).resizeLeft(dataOutWidth)).m2sPipe(),Bits(busWidth bits)).queue(10)
   }
-  def firstValid(data:Bits)={
-    val index = U(0)
-    for(i<-0 until io.axis_tkeep.getWidth){
-    when(data(i).asUInt===1){
-      index := i
-    }
-  }
-    index
-  }
 }
-
-
