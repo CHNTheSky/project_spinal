@@ -15,8 +15,8 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
   val dataJoin = Reg(Bits(dataOutWidth bit))
   val tmpdata = Reg(Bits(8*busWidth bit))//最大的8拍拼接
   val shiftBit = Reg(UInt())
-  val lastStage = Reg(UInt(3 bits)) init(0)//上一拍标志
-  val curStage= RegNext(lastStage)//当前拍标志
+  val curStage = Reg(UInt(3 bits)) init(1)//当前是第几拍拍标志 123450 12340 1230
+  val nextStage = RegNext(curStage)//              前一拍是第几拍    012345 01234 0123
   def firstValid(data:Bits)={
     val index = U(0)
     for(i<-0 until io.axis_tkeep.getWidth){
@@ -26,10 +26,12 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
     }
     index
   }
-  val laststage  =new Area{
+  val curstage  =new Area{
     when(isFirstOne){
-      lastStage:=0
-    }.otherwise(lastStage:=lastStage+1)
+      curStage:=1
+    }.elsewhen(io.axis_tlast){
+      curStage:=0
+    }
   }
 
   val logic_in = new Area{
@@ -50,7 +52,7 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
           tmpdata := fifoCach.io.pop.payload.resized
         }
       }
-      when(fifoCach.io.pop.valid === True && lastStage<=curStage){//是当前的这一拍
+      when(fifoCach.io.pop.valid === True && (curStage>nextStage||curStage===0||nextStage===0)){//是当前的这一拍
         tmpdata:= (tmpdata(i*busWidth-1 downto 0)##fifoCach.io.pop.payload).resized//拼接
       }
     }
