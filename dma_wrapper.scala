@@ -46,8 +46,8 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
       streamOut.valid:=True
     }.otherwise(streamOut.valid:=False)
     fifoCach.io.pop.ready:=True
-    for(i<-0 until 7){
-      if(i == 1){
+    for(i<-0 to 7){//拼接
+      if(i == 0){
         when(fifoCach.io.pop.valid === True) {
           tmpdata := fifoCach.io.pop.payload.resized
         }
