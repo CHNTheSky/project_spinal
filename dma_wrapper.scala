@@ -13,7 +13,7 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
   )
   val isFirstOne = RegNext(io.axis_tlast) init(True)//第一拍标志
   val dataJoin = Reg(Bits(dataOutWidth bit))
-  val tmpdata = Reg(Bits(8*dataOutWidth bit))//最大的8拍拼接
+  val tmpdata = Reg(Bits(8*busWidth bit))//最大的8拍拼接
   val shiftBit = Reg(UInt())
   val lastStage = Reg(UInt(3 bits)) init(0)//上一拍标志
   val curStage= RegNext(lastStage)//当前拍标志
