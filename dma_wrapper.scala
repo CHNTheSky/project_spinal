@@ -14,11 +14,19 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
   val isFirstOne = RegNext(io.axis_tlast) init(True)
   val dataJoin = Reg(Bits(dataOutWidth bit))
   val shiftBit = Reg(UInt())
+  val thisStage = Reg(UInt(10 bits)) init(1)
 
+  val thisstage  =new Area{
+    when(isFirstOne){
+     thisStage:=1
+    }.elsewhen(thisStage===0){
+      thisStage:=0//最后一拍为0
+    }.otherwise(thisStage:=thisStage+1)
+  }
 
   val logic_in = new Area{
     fifoCach.io.push<<io.axis
-    when(isFirstOne){
+    when(thisStage===1){
       shiftBit:=firstValid(io.axis.payload)
     }
   }
@@ -29,13 +37,11 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
     when(io.axis_tlast){
       streamOut.valid:=True
     }.otherwise(streamOut.valid:=False)
-
     fifoCach.io.pop.ready:=True
-    dataJoin := dataJoin##fifoCach.io.pop.payload//拼接
+    dataJoin := dataJoin(0 until busWidth)##fifoCach.io.pop.payload//拼接
     io.dmaWrapper<>StreamWidthAdapter.make(streamOut.translateWith((dataJoin<<(shiftBit*8)).resizeLeft(dataOutWidth)).m2sPipe(),Bits(busWidth bits)).queue(10)
 
   }
-
 
   def firstValid(data:Bits)={
     val index = U(0)
@@ -47,5 +53,6 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component{
     index
   }
 }
+
 
 
