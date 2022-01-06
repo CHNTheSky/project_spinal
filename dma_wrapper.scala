@@ -2,8 +2,8 @@ import spinal.core._
 import spinal.lib._
 case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
   val io = new Bundle {
-    val axis_tKeep = in Bits (busWidth / 8 bits)
-    val axis_tLast = in Bool
+    val axisKeep = in Bits (busWidth / 8 bits)
+    val axisLast = in Bool
     val axis = slave Stream (Bits(busWidth bits))
     val dmaWrapper = master Stream (Bits(busWidth bits))
   }
@@ -11,11 +11,12 @@ case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
     dataType = Bits(busWidth bits),
     depth = 8
   )
-  val tLastDelay1 = RegNext(io.axis_tLast) init (True)
+
+  val tLastDelay1 = RegNext(io.axisLast) init (True)
   val tLastDelay2 =
     RegNext(tLastDelay1) init (False) //pop has two cycles delay of push
   val dataJoin = Reg(Bits(dataOutWidth bit)) init (0)
-  val tmpData = Reg(Bits(4 * busWidth bit)) init (0) //最大的4拍拼接
+  val tmpData = Reg(Bits(4 * busWidth bit)) init (0)
   val shiftBit = Reg(UInt(log2Up(dataOutWidth / 8) bits)) init (0)
   val popValidDelay1 = RegNext(fifo.io.pop.valid)
   val isFirstOne = io.axis.valid.rise() //first stage
@@ -41,8 +42,8 @@ case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
 
   val area_LogicIn = new Area {
     fifo.io.push << io.axis
-    when(io.axis_tLast) {
-      shiftBit := lastValid(io.axis_tKeep).resized
+    when(io.axisLast) {
+      shiftBit := lastValid(io.axisKeep).resized
     }
   }
   val area_LogicOut = new Area {
