@@ -2,22 +2,22 @@ import spinal.core._
 import spinal.lib._
 case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
   val io = new Bundle {
-    val axis_tkeep = in Bits (busWidth / 8 bits)
-    val axis_tlast = in Bool
+    val axis_tKeep = in Bits (busWidth / 8 bits)
+    val axis_tLast = in Bool
     val axis = slave Stream (Bits(busWidth bits))
     val dmaWrapper = master Stream (Bits(busWidth bits))
   }
-  val fifoCach = StreamFifo(
+  val fifo = StreamFifo(
     dataType = Bits(busWidth bits),
     depth = 8
   )
-  val tLastDelay1 = RegNext(io.axis_tlast) init (True)
+  val tLastDelay1 = RegNext(io.axis_tLast) init (True)
   val tLastDelay2 =
     RegNext(tLastDelay1) init (False) //pop has two cycles delay of push
   val dataJoin = Reg(Bits(dataOutWidth bit)) init (0)
-  val tmpData = Reg(Bits(4 * busWidth bit)) init (0) 
+  val tmpData = Reg(Bits(4 * busWidth bit)) init (0) //最大的4拍拼接
   val shiftBit = Reg(UInt(log2Up(dataOutWidth / 8) bits)) init (0)
-  val popValidDelay1 = RegNext(fifoCach.io.pop.valid)
+  val popValidDelay1 = RegNext(fifo.io.pop.valid)
   val isFirstOne = io.axis.valid.rise() //first stage
   val count = Reg(UInt(2 bits)) init (0)
 
@@ -32,17 +32,17 @@ case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
     index
   }
   val stageCount = new Area {
-    when(fifoCach.io.push.fire && !fifoCach.io.pop.fire) {
+    when(fifo.io.push.fire && !fifo.io.pop.fire) {
       count := count + 1
-    }.elsewhen(fifoCach.io.pop.fire && !fifoCach.io.push.fire) {
+    }.elsewhen(fifo.io.pop.fire && !fifo.io.push.fire) {
       count := count - 1
     }.otherwise(count := count)
   }
 
   val area_LogicIn = new Area {
-    fifoCach.io.push << io.axis
-    when(io.axis_tlast) {
-      shiftBit := lastValid(io.axis_tkeep).resized
+    fifo.io.push << io.axis
+    when(io.axis_tLast) {
+      shiftBit := lastValid(io.axis_tKeep).resized
     }
   }
   val area_LogicOut = new Area {
@@ -51,12 +51,12 @@ case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
     validVec(0) := count === 0 && popValidDelay1 === True
     validVec(1) := validVec(0)
     streamOut.valid := validVec.xorR
-    fifoCach.io.pop.ready := True
-    when(fifoCach.io.pop.valid === True) {
-      when(isFirstOne === True) { 
-        tmpData := fifoCach.io.pop.payload.resized
+    fifo.io.pop.ready := True
+    when(fifo.io.pop.valid === True) {
+      when(isFirstOne === True) { //第一拍清空
+        tmpData := fifo.io.pop.payload.resized
       }.otherwise {
-        tmpData := (tmpData ## fifoCach.io.pop.payload).resized 
+        tmpData := (tmpData ## fifo.io.pop.payload).resized //拼接
       }
     }
     when(count === 0) {
@@ -67,4 +67,3 @@ case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
       .queue(0)
   }
 }
-
