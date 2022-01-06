@@ -40,13 +40,13 @@ case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
     }.otherwise(count := count)
   }
 
-  val area_LogicIn = new Area {
+  val logicIn = new Area {
     fifo.io.push << io.axis
     when(io.axisLast) {
       shiftBit := lastValid(io.axisKeep).resized
     }
   }
-  val area_LogicOut = new Area {
+  val logicOut = new Area {
     val streamOut = Stream(Bits(dataOutWidth bits))
     val validVec = Vec(Reg(False), dataOutWidth / busWidth)
     validVec(0) := count === 0 && popValidDelay1 === True
