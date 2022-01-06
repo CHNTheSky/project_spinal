@@ -1,6 +1,6 @@
 import spinal.core._
 import spinal.lib._
-case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component {
+case class DmaWrapper(busWidth: Int, dataOutWidth: Int) extends Component {
   val io = new Bundle {
     val axis_tkeep = in Bits (busWidth / 8 bits)
     val axis_tlast = in Bool
@@ -11,56 +11,60 @@ case class DmaWrapper(busWidth: Int,dataOutWidth: Int) extends Component {
     dataType = Bits(busWidth bits),
     depth = 8
   )
-  val isFirstOne = RegNext(io.axis_tlast) init (True) //第一拍标志
-  val dataJoin = Reg(Bits(dataOutWidth bit))
-  val tmpdata = Reg(Bits(8 * busWidth bit)) //最大的8拍拼接
-  val shiftBit = Reg(UInt())
-  val curStage = Reg(UInt(3 bits)) init (1) //当前是第几拍拍标志 123450 12340 1230
+  val tLastDelay1 = RegNext(io.axis_tlast) init (True)
+  val tLastDelay2 =
+    RegNext(tLastDelay1) init (False) //pop has two cycles delay of push
+  val dataJoin = Reg(Bits(dataOutWidth bit)) init (0)
+  val tmpData = Reg(Bits(4 * busWidth bit)) init (0) 
+  val shiftBit = Reg(UInt(log2Up(dataOutWidth / 8) bits)) init (0)
+  val popValidDelay1 = RegNext(fifoCach.io.pop.valid)
+  val isFirstOne = io.axis.valid.rise() //first stage
+  val count = Reg(UInt(2 bits)) init (0)
 
-  //val nextStage = RegNext(curStage)//              前一拍是第几拍    012345 01234 0123
-  def firstValid(data: Bits) = {
-    val index = U(0)
-    for (i <- 0 until io.axis_tkeep.getWidth) {
-      when(data(i).asUInt === 1) {
+  def lastValid(data: Bits) = {
+    val index = UInt(log2Up(dataOutWidth / 8) bits)
+    index := data.getWidth - 1
+    for (i <- 0 until data.getWidth) {
+      when(data(i) === False) {
         index := i
       }
     }
     index
   }
-
-  val curstage = new Area {
-    when(isFirstOne) {
-      curStage := 1
-    }.elsewhen(io.axis_tlast) {
-      curStage := 0
-    }
+  val stageCount = new Area {
+    when(fifoCach.io.push.fire && !fifoCach.io.pop.fire) {
+      count := count + 1
+    }.elsewhen(fifoCach.io.pop.fire && !fifoCach.io.push.fire) {
+      count := count - 1
+    }.otherwise(count := count)
   }
 
-  val logic_in = new Area {
+  val area_LogicIn = new Area {
     fifoCach.io.push << io.axis
-    when(isFirstOne) {
-      shiftBit := firstValid(io.axis.payload)
+    when(io.axis_tlast) {
+      shiftBit := lastValid(io.axis_tkeep).resized
     }
   }
-  val logic_out = new Area {
+  val area_LogicOut = new Area {
     val streamOut = Stream(Bits(dataOutWidth bits))
-    streamOut.valid:=False
-    when(io.axis_tlast) {
-      streamOut.valid := True
-    }.otherwise(streamOut.valid := False)
-
+    val validVec = Vec(Reg(False), dataOutWidth / busWidth)
+    validVec(0) := count === 0 && popValidDelay1 === True
+    validVec(1) := validVec(0)
+    streamOut.valid := validVec.xorR
     fifoCach.io.pop.ready := True
-
     when(fifoCach.io.pop.valid === True) {
-      when(curStage === 1) { //第一拍清空
-        tmpdata := 0
-        tmpdata(busWidth - 1 downto 0) := fifoCach.io.pop.payload.resized
+      when(isFirstOne === True) { 
+        tmpData := fifoCach.io.pop.payload.resized
       }.otherwise {
-        tmpdata := (tmpdata ## fifoCach.io.pop.payload).resized //拼接
+        tmpData := (tmpData ## fifoCach.io.pop.payload).resized 
       }
     }
-      dataJoin := tmpdata.resized
-      io.dmaWrapper <> StreamWidthAdapter.make(streamOut.translateWith((dataJoin << (shiftBit * 8)).resizeLeft(dataOutWidth)).m2sPipe(), Bits(busWidth bits)).queue(10)
-
+    when(count === 0) {
+      dataJoin := (tmpData >> (shiftBit + 1) * 8).resized
+    }
+    io.dmaWrapper <> StreamWidthAdapter
+      .make(streamOut.translateWith(dataJoin), Bits(busWidth bits))
+      .queue(0)
   }
 }
+
