@@ -5,7 +5,6 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.Stream
 import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
-
 import scala.collection.mutable
 import scala.util.Random
 
@@ -42,7 +41,7 @@ object StreamUnitTester {
       }
 
       StreamReadyRandomizer(dut.io.streamD, dut.clockDomain)
-
+      
       SimStreamUtils.onStreamFire(dut.io.streamA, dut.clockDomain)({
         dataAQueue.enqueue(dut.io.streamA.payload.toLong)
       })
